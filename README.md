@@ -1,0 +1,2 @@
+# smock
+simple mock generator
