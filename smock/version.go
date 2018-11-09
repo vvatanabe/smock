@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	Name    = "smock"
-	version = ""
+	version = "0.0.0"
 )
 
 var (
