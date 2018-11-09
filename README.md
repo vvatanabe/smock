@@ -5,6 +5,11 @@ simple mock generator
 Automatically generate simple mock code of Golang interface.
 
 ## Installation
+This package can be installed with the go get command:
+```
+$ go get github.com/vvatanabe/smock/cmd/smock
+```
+
 Built binaries are available on Github releases: https://github.com/vvatanabe/smock/releases
 
 ## Usage
