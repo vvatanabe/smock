@@ -38,7 +38,7 @@ bump: devel-deps
 
 .PHONY: build
 build:
-	go build -ldflags="$(BUILD_LDFLAGS)" -o ./dist/current/$(NAME) ./cmd/main.go
+	go build -ldflags="$(BUILD_LDFLAGS)" -o ./dist/current/$(NAME) ./cmd/smock/main.go
 
 .PHONY: crossbuild
 crossbuild: devel-deps
