@@ -43,7 +43,7 @@ build:
 .PHONY: crossbuild
 crossbuild: devel-deps
 	goxz -pv=$(VERSION) -arch=386,amd64 -build-ldflags="$(RELEASE_BUILD_LDFLAGS)" \
-	  -o=$(NAME) -d=./dist/$(VERSION) ./cmd
+	  -o=$(NAME) -d=./dist/$(VERSION) ./cmd/smock
 
 .PHONY: upload
 upload:
