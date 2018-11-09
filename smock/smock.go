@@ -59,7 +59,7 @@ type Returns []*variable
 
 func (rs Returns) String() string {
 	var a []string
-	var brackets bool
+	brackets := len(rs) > 1
 	for _, r := range rs {
 		a = append(a, r.String())
 		if !brackets {
