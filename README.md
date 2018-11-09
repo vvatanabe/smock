@@ -1,4 +1,4 @@
-# smock
+# smock [![Build Status](https://travis-ci.org/vvatanabe/smock.svg?branch=master)](https://travis-ci.org/vvatanabe/smock)
 simple mock generator
 
 ## Description
