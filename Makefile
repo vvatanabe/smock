@@ -1,6 +1,6 @@
 NAME = smock
 PKG = github.com/vvatanabe/smock
-VERSION = $(shell gobump show -r ./smock)
+VERSION = v$(shell gobump show -r ./smock)
 COMMIT = $$(git describe --tags --always)
 DATE = $$(date '+%Y-%m-%d_%H:%M:%S')
 BUILD_LDFLAGS = -X $(PKG)/smock.commit=$(COMMIT) -X $(PKG)/smock.date=$(DATE)
