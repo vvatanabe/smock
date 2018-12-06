@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/format"
 	"go/parser"
 	"go/token"
 	"io"
+	"log"
+	"path/filepath"
 	"strings"
 	"text/template"
 )
 
-type Data struct {
+type Model struct {
 	PackageName string
 	Imports     []string
 	Structures  []*Structure
@@ -82,87 +85,158 @@ func (p *variable) String() string {
 	return fmt.Sprintf("%s %s", p.Name, p.Type)
 }
 
-func Gen(pkg string, src io.Reader, dist io.Writer) error {
+type File struct {
+	pkg     *Package
+	astFile *ast.File
+}
 
-	mockTpl, err := template.New("smock").Parse(tpl)
+type Package struct {
+	name  string
+	files []*File
+}
+
+type Generator struct {
+	pkg   *Package
+	model *Model
+	buf   bytes.Buffer
+}
+
+func (g *Generator) ParsePackageFiles(names []string) {
+	g.parsePackage(".", names, nil)
+}
+
+func (g *Generator) ParsePackageDir(directory string) {
+	pkg, err := build.Default.ImportDir(directory, 0)
 	if err != nil {
-		panic(err)
+		log.Fatalf("cannot process directory %s: %s", directory, err)
 	}
+	var names []string
+	names = append(names, pkg.GoFiles...)
+	names = append(names, pkg.CgoFiles...)
+	names = prefixDirectory(directory, names)
+	g.parsePackage(directory, names, nil)
+}
 
-	fileSet := token.NewFileSet()
-	astFile, err := parser.ParseFile(fileSet, "", src, 0)
-	if err != nil {
-		panic(err)
+func prefixDirectory(directory string, names []string) []string {
+	if directory == "." {
+		return names
 	}
-
-	data := &Data{}
-	data.PackageName = pkg
-	for _, v := range astFile.Imports {
-		data.Imports = append(data.Imports, v.Path.Value)
+	ret := make([]string, len(names))
+	for i, name := range names {
+		ret[i] = filepath.Join(directory, name)
 	}
+	return ret
+}
 
-	for _, decl := range astFile.Decls {
-
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
+func (g *Generator) parsePackage(directory string, names []string, src interface{}) {
+	var files []*File
+	g.pkg = new(Package)
+	g.model = new(Model)
+	fs := token.NewFileSet()
+	if src != nil {
+		astFile, err := parser.ParseFile(fs, "", src, parser.ParseComments)
+		if err != nil {
+			log.Fatalf("parsing package: src: %s", err)
 		}
-
-		if genDecl.Tok.String() != "type" {
-			continue
+		files = append(files, &File{
+			astFile: astFile,
+			pkg:     g.pkg,
+		})
+	} else {
+		for _, name := range names {
+			if !strings.HasSuffix(name, ".go") {
+				continue
+			}
+			astFile, err := parser.ParseFile(fs, name, src, parser.ParseComments)
+			if err != nil {
+				log.Fatalf("parsing package: %s: %s", name, err)
+			}
+			files = append(files, &File{
+				astFile: astFile,
+				pkg:     g.pkg,
+			})
 		}
+	}
+	if len(files) == 0 {
+		log.Fatalf("%s: no buildable Go files", directory)
+	}
+	g.model.PackageName = files[0].astFile.Name.Name
+	g.pkg.files = files
+}
 
-		for _, spec := range genDecl.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
+func (g *Generator) ParseReader(src io.Reader) {
+	g.parsePackage("", []string{}, src)
+}
+
+func (g *Generator) SetPackageName(name string) {
+	g.model.PackageName = name
+}
+
+func (g *Generator) Generate(typeName string) {
+	for _, file := range g.pkg.files {
+		for _, importSpec := range file.astFile.Imports {
+			g.model.Imports = append(g.model.Imports, importSpec.Path.Value)
+		}
+		for _, decl := range file.astFile.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
 			if !ok {
 				continue
 			}
-
-			interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
-			if !ok {
+			if genDecl.Tok.String() != "type" {
 				continue
 			}
-
-			structure := &Structure{}
-			structure.Name = typeSpec.Name.String()
-
-			for _, method := range interfaceType.Methods.List {
-
-				funcType, ok := method.Type.(*ast.FuncType)
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
 				if !ok {
 					continue
 				}
-
-				var funcName string
-				for _, n := range method.Names {
-					funcName = n.Name
+				interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
+				if !ok {
+					continue
 				}
-
-				params, returns := parseFunc(funcType)
-				structure.Methods = append(structure.Methods, &Method{
-					Name:    funcName,
-					Params:  params,
-					Returns: returns,
-				})
+				structureName := typeSpec.Name.String()
+				if structureName != typeName {
+					continue
+				}
+				structure := &Structure{}
+				structure.Name = structureName
+				for _, method := range interfaceType.Methods.List {
+					funcType, ok := method.Type.(*ast.FuncType)
+					if !ok {
+						continue
+					}
+					var funcName string
+					for _, n := range method.Names {
+						funcName = n.Name
+					}
+					params, returns := parseFunc(funcType)
+					structure.Methods = append(structure.Methods, &Method{
+						Name:    funcName,
+						Params:  params,
+						Returns: returns,
+					})
+				}
+				g.model.Structures = append(g.model.Structures, structure)
 			}
-
-			data.Structures = append(data.Structures, structure)
 		}
 	}
+}
 
-	var buf bytes.Buffer
-	err = mockTpl.Execute(&buf, data)
+func (g *Generator) Format() []byte {
+	mockTemplate, err := template.New("smock").Parse(codeTemplate)
 	if err != nil {
-		panic(err)
+		log.Fatalln("could not parse Go template")
 	}
-
-	fmted, err := format.Source(buf.Bytes())
+	if err = mockTemplate.Execute(&g.buf, g.model); err != nil {
+		log.Fatalln("could not apply data to Go template")
+	}
+	src, err := format.Source(g.buf.Bytes())
 	if err != nil {
-		panic(err)
+		log.Printf("warning: internal error: invalid Go generated: %s", err)
+		log.Printf("warning: compile the package to analyze the error")
+		return g.buf.Bytes()
 	}
-
-	_, err = dist.Write(fmted)
-	return err
+	return src
 }
 
 func parseFunc(funcType *ast.FuncType) (Params, Returns) {

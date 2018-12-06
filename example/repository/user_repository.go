@@ -1,3 +1,4 @@
+//go:generate /home/vvatanabe/go/src/github.com/vvatanabe/smock/dist/current/smock --type=UserRepository --output=../mock
 package repository
 
 import (
