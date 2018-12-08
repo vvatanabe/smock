@@ -7,7 +7,6 @@ import (
 
 type UserRepositoryMock struct {
 	FindByIDFunc   func(id int) *model.User
-	FindByIDsFunc  func(ids []int) []*model.User
 	RemoveByIDFunc func(id int)
 	CreateFunc     func(user *model.User)
 	UpdateFunc     func(user *model.User)
@@ -18,13 +17,6 @@ func (m *UserRepositoryMock) FindByID(id int) *model.User {
 		panic("This method is not defined.")
 	}
 	return m.FindByIDFunc(id)
-}
-
-func (m *UserRepositoryMock) FindByIDs(ids []int) []*model.User {
-	if m.FindByIDsFunc == nil {
-		panic("This method is not defined.")
-	}
-	return m.FindByIDsFunc(ids)
 }
 
 func (m *UserRepositoryMock) RemoveByID(id int) {
@@ -42,6 +34,41 @@ func (m *UserRepositoryMock) Create(user *model.User) {
 }
 
 func (m *UserRepositoryMock) Update(user *model.User) {
+	if m.UpdateFunc == nil {
+		panic("This method is not defined.")
+	}
+	m.UpdateFunc(user)
+}
+
+type TeamRepositoryMock struct {
+	FindByIDFunc   func(id int) *model.Team
+	RemoveByIDFunc func(id int)
+	CreateFunc     func(user *model.Team)
+	UpdateFunc     func(user *model.Team)
+}
+
+func (m *TeamRepositoryMock) FindByID(id int) *model.Team {
+	if m.FindByIDFunc == nil {
+		panic("This method is not defined.")
+	}
+	return m.FindByIDFunc(id)
+}
+
+func (m *TeamRepositoryMock) RemoveByID(id int) {
+	if m.RemoveByIDFunc == nil {
+		panic("This method is not defined.")
+	}
+	m.RemoveByIDFunc(id)
+}
+
+func (m *TeamRepositoryMock) Create(user *model.Team) {
+	if m.CreateFunc == nil {
+		panic("This method is not defined.")
+	}
+	m.CreateFunc(user)
+}
+
+func (m *TeamRepositoryMock) Update(user *model.Team) {
 	if m.UpdateFunc == nil {
 		panic("This method is not defined.")
 	}
