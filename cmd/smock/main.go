@@ -18,7 +18,7 @@ import (
 
 var (
 	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
-	output      = flag.String("output", "", "output file name; default srcdir/<type>_mock.go")
+	output      = flag.String("output", "", "output directory; default process whole package in current directory")
 	showVersion = flag.Bool("v", false, "show version")
 )
 
